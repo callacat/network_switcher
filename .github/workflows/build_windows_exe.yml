@@ -5,6 +5,8 @@ name: Build Windows Executable
 on:
   release:
     types: [published] # 当一个新的 Release 被“发布”时触发
+  push:
+  
 
 # 定义一个 Job
 jobs:
