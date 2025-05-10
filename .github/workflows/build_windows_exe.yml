@@ -15,10 +15,10 @@ jobs:
     # 在 Windows 最新版虚拟机上运行此 Job
     runs-on: windows-latest
 
-    # 需要对仓库内容和 Release 有写权限
-    permissions:
-      contents: write # 允许写入内容 (用于创建/更新 Tag)
-      releases: write # 允许创建/更新 Release 并上传资产
+    # # 需要对仓库内容和 Release 有写权限
+    # permissions:
+    #   contents: write # 允许写入内容 (用于创建/更新 Tag)
+    #   releases: write # 允许创建/更新 Release 并上传资产
 
     # Job 中的步骤
     steps:
