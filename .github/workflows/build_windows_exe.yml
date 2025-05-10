@@ -1,12 +1,13 @@
-# Workflow 名称，在 GitHub Actions 页面显示
-name: Build Windows Executable
+# Workflow 名称
+name: Build and Release Latest Windows Executable
 
 # 何时运行此 workflow
 on:
-  release:
-    types: [published] # 当一个新的 Release 被“发布”时触发
   push:
-  
+    branches:
+      - main # 当向 'main' 分支推送代码时触发
+      # 如果你的主分支是 'master' 或其他名称，请修改这里
+  workflow_dispatch: # 允许在 GitHub Actions 页面手动触发工作流程
 
 # 定义一个 Job
 jobs:
@@ -14,46 +15,66 @@ jobs:
     # 在 Windows 最新版虚拟机上运行此 Job
     runs-on: windows-latest
 
-    # --- 添加以下 permissions 块 ---
+    # 需要对仓库内容和 Release 有写权限
     permissions:
-      contents: write # 允许写入内容 (包括 Release Assets)
-      releases: write # 允许写入 Release
-    # --- 添加结束 ---
+      contents: write # 允许写入内容 (用于创建/更新 Tag)
+      releases: write # 允许创建/更新 Release 并上传资产
 
     # Job 中的步骤
     steps:
     - name: Checkout code # 步骤名称：拉取代码
-      uses: actions/checkout@v4
+      uses: actions/checkout@v4 # 使用 GitHub 官方的 actions/checkout
 
     - name: Set up Python # 步骤名称：安装 Python 环境
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v5 # 使用 GitHub 官方的 actions/setup-python
       with:
-        python-version: '3.x' # 指定 Python 版本，3.6 或更高版本通常都可以
+        python-version: '3.x' # 指定 Python 版本
 
     - name: Install dependencies # 步骤名称：安装依赖（PyInstaller）
-      run: pip install pyinstaller
+      run: pip install pyinstaller # 使用 pip 安装 PyInstaller
 
     - name: Build executable with PyInstaller # 步骤名称：使用 PyInstaller 打包
       run: |
+        # 运行 PyInstaller 命令
+        # --onefile: 打包成单个文件
+        # --console: 命令行程序，需要显示控制台窗口
+        # network_switcher.py: 你的脚本文件名
         pyinstaller --onefile --console network_switcher.py
+
+        # 验证打包是否成功
         if (-not (Test-Path .\dist\network_switcher.exe)) {
             Write-Host "Error: Executable not found in .\dist\" -ForegroundColor Red
             exit 1
         }
 
-    - name: Upload build artifact (for debugging) # 可选步骤：上传构建产物作为 Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: network-switcher-build-windows
-        path: dist/
+    # 不再需要单独的 upload-artifact 步骤，因为 softprops/action-gh-release 会直接上传到 Release
 
-    - name: Upload executable to Release # 步骤名称：上传 exe 到 Release
-      uses: actions/upload-release-asset@v1
-      id: upload-release-asset
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # GitHub 提供的 token，用于认证
+    - name: Create or Update 'latest' Release and Upload Asset # 步骤名称：创建/更新 Release 并上传资产
+      # 使用 softprops/action-gh-release Action
+      uses: softprops/action-gh-release@v1
+      if: success() # 仅在前一步骤（构建）成功时运行此步骤
       with:
-        upload_url: ${{ github.event.release.upload_url }} # 从 Release 触发事件中获取上传 URL
-        asset_path: ./dist/network_switcher.exe # 要上传的文件路径（在 Runner 上）
-        asset_name: network_switcher_windows_x64.exe # 上传到 Release 后显示的文件名
-        asset_content_type: application/octet-stream # 标准的可执行文件 MIME 类型
+        # 指定 Release 的 Tag 和 Name
+        tag_name: latest # Release 的 Tag 名称，这将是一个名为 'latest' 的 Tag
+        name: Latest Build # Release 在 GitHub 页面上显示的标题
+
+        # Release 的描述信息
+        body: |
+          Automated latest build of network_switcher.
+
+          Triggered by **${{ github.event_name }}** on **${{ github.ref }}**.
+
+        # 将打包生成的 exe 文件添加到 Release 资产
+        files: dist/network_switcher.exe # 指定要上传的文件路径，相对于仓库根目录
+
+        # 控制 Release 行为
+        draft: false # 设置为 false 表示直接发布 Release，而不是创建草稿
+        prerelease: false # 设置为 false 表示不是预发布版本
+
+        # ★ 关键选项：如果 'latest' Tag 或 Release 已经存在，则覆盖它
+        # 这实现了“更新最新版本”的功能
+        overwrite: true
+
+      env:
+        # 使用 GitHub 提供的 token 进行身份验证
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
