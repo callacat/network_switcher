@@ -12,48 +12,42 @@ jobs:
     # 在 Windows 最新版虚拟机上运行此 Job
     runs-on: windows-latest
 
+    # --- 添加以下 permissions 块 ---
+    permissions:
+      contents: write # 允许写入内容 (包括 Release Assets)
+      releases: write # 允许写入 Release
+    # --- 添加结束 ---
+
     # Job 中的步骤
     steps:
     - name: Checkout code # 步骤名称：拉取代码
-      uses: actions/checkout@v4 # 使用 GitHub 官方的 actions/checkout 来获取仓库代码
+      uses: actions/checkout@v4
 
     - name: Set up Python # 步骤名称：安装 Python 环境
-      uses: actions/setup-python@v5 # 使用 GitHub 官方的 actions/setup-python
+      uses: actions/setup-python@v5
       with:
         python-version: '3.x' # 指定 Python 版本，3.6 或更高版本通常都可以
-        # cache: 'pip' # 可以选择缓存 pip 包，加快后续运行速度
-        # cache-dependency-path: requirements.txt # 如果有其他依赖，可以在 requirements.txt 中列出并在这里指定
 
     - name: Install dependencies # 步骤名称：安装依赖（PyInstaller）
-      run: pip install pyinstaller # 使用 pip 安装 PyInstaller
+      run: pip install pyinstaller
 
     - name: Build executable with PyInstaller # 步骤名称：使用 PyInstaller 打包
       run: |
-        # 切换到脚本所在的目录（如果脚本不在根目录，需要调整）
-        # cd your_script_directory
-        # 运行 PyInstaller 命令
-        # --onefile: 打包成单个文件
-        # --console: 命令行程序，需要显示控制台窗口进行交互
-        # network_switcher.py: 你的脚本文件名
         pyinstaller --onefile --console network_switcher.py
-
-        # 验证打包是否成功，检查 dist 目录下是否存在 exe 文件
         if (-not (Test-Path .\dist\network_switcher.exe)) {
             Write-Host "Error: Executable not found in .\dist\" -ForegroundColor Red
             exit 1
         }
 
     - name: Upload build artifact (for debugging) # 可选步骤：上传构建产物作为 Artifact
-      # 这个步骤是为了方便调试，即使 Release 上传失败，你也可以在 Actions 页面下载构建出的 exe 文件
       uses: actions/upload-artifact@v4
       with:
-        name: network-switcher-build-windows # Artifact 的名称
-        path: dist/ # 需要上传的目录或文件
+        name: network-switcher-build-windows
+        path: dist/
 
     - name: Upload executable to Release # 步骤名称：上传 exe 到 Release
-      # 使用 GitHub 官方的 actions/upload-release-asset
       uses: actions/upload-release-asset@v1
-      id: upload-release-asset # 给这个步骤一个ID，方便后续引用（虽然这里没用）
+      id: upload-release-asset
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # GitHub 提供的 token，用于认证
       with:
